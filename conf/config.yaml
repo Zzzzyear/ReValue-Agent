@@ -1,0 +1,115 @@
+# Re-Value Agent Configuration
+# 全局静态配置
+
+# VLM 模型配置
+vlm:
+  # 默认模型: qwen3.5-plus (多模态，支持图片输入)
+  default_model: "qwen3.5-plus"
+  # API Base URL (OpenAI-compatible)
+  api_base: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  # 请求超时(秒)，图片较大时需要更长超时
+  timeout: 120
+  # 最大并发数
+  max_concurrent: 2
+
+# 文案生成模型配置
+llm:
+  default_model: "qwen-plus"
+  api_base: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  timeout: 30
+  max_concurrent: 2
+
+# 本地SD配置
+stable_diffusion:
+  # SD模型类型: sd_15 | sdxl_turbo | sdxl
+  model_type: "sd_15"
+  # 模型路径 (本地目录或HuggingFace repo_id)
+  # 指向包含 model_index.json 的目录（通常是 snapshots/xxx/）
+  model_path: "D:/Code/AI_Playground/projects/ReValue-Agent/models/models--runwayml--stable-diffusion-v1-5/snapshots/451f4fe16113bff5a5d2269ed5ad43b0592e9a14"
+  # Lora路径 (可选)
+  lora_path: ""
+  # 推理步数
+  num_inference_steps: 25
+  # Guidance scale
+  guidance_scale: 7.5
+  # 生成的图像尺寸
+  width: 1024
+  height: 1024
+  # 显存优化
+  enable_attention_slicing: true
+  enable_vae_slicing: true
+
+# 抠图配置
+matting:
+  # 抠图模型: u2net | u2netp | u2net_human_seg | silueta
+  model_name: "u2net"
+  # Alpha通道有效面积阈值(%)
+  alpha_threshold: 5
+
+# 图像融合配置
+fusion:
+  # 融合模式: rule | vlm
+  # rule: 使用规则计算位置(默认)
+  # vlm: 使用VLM输出的reference_box
+  mode: "rule"
+  # 主体占背景高度的比例(%)
+  subject_height_ratio: 0.65
+  # 距离底部的边距比例(%)
+  bottom_margin_ratio: 0.15
+  # 阴影模糊半径(px)
+  shadow_blur_radius: 15
+  # 阴影透明度(0-255)
+  shadow_alpha: 100
+  # 阴影向下偏移(px)
+  shadow_offset_y: 10
+
+# 并发控制
+concurrency:
+  # 全局asyncio信号量限制
+  semaphore_limit: 2
+  # 重试配置
+  max_retries: 3
+  retry_wait_min: 2
+  retry_wait_max: 10
+
+# 路径配置
+paths:
+  data_input: "data/input"
+  data_intermediate: "data/intermediate"
+  data_output: "data/output"
+  # 本地SD模型路径
+  sd_model_path: "D:/Code/AI_Playground/projects/ReValue-Agent/models/models--runwayml--stable-diffusion-v1-5/snapshots/451f4fe16113bff5a5d2269ed5ad43b0592e9a14"
+  # 本地模型缓存目录 (rembg等)
+  local_model_cache: "models_cache"
+
+# 平台文案风格
+platform_style:
+  default: "闲鱼体"
+  styles:
+    闲鱼体:
+      emoji_enabled: true
+      max_title_length: 30
+      max_content_length: 200
+    小红书体:
+      emoji_enabled: true
+      hashtag_enabled: true
+      max_title_length: 20
+      max_content_length: 500
+
+# 创意合成配置 (Node 2C)
+creative:
+  # 字体路径 (Windows中文字体)
+  font_path: "C:/Windows/Fonts/msyh.ttc"
+  # 默认字体大小
+  default_font_size: 48
+  # 文字默认配置
+  default_text_bg: [0, 0, 0, 180]      # 半透明黑色背景
+  default_text_color: [255, 255, 255]  # 白色文字
+  # 装饰元素默认配置
+  default_sparkle_color: [255, 215, 0]    # 金色闪光
+  default_badge_color: [255, 100, 100]   # 红色徽章
+  default_heart_color: [255, 100, 150]    # 粉色心形
+  # 最大元素数量限制
+  max_sparkle_count: 5
+  max_heart_count: 3
+  max_badge_count: 2

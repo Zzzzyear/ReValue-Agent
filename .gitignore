@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-*
+
+# Models (large files - DO NOT COMMIT)
+models/
+models_cache/
+*.safetensors
+*.bin
+*.pth
+*.onnx
+*.ckpt
+
+# Output and logs
+data/output/
+data/logs/
+data/intermediate/
+*.log
+
+# Environment and secrets
+.env
+.env.*
+*.local.yaml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/

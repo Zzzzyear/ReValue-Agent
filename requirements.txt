@@ -1,0 +1,36 @@
+# Core dependencies
+aiohttp>=3.9.0
+tenacity>=8.2.0
+Pillow>=10.0.0
+numpy>=1.24.0
+opencv-python>=4.8.0
+
+# Image processing
+rembg>=2.0.50
+onnxruntime>=1.16.0  # CPU fallback for rembg
+
+# Local Stable Diffusion (optional - install manually if needed)
+# diffusers>=0.25.0
+# transformers>=4.35.0
+# accelerate>=0.25.0
+# torch>=2.0.0
+
+# LLM/VLM clients
+# qwen-vl: pip install dashinfer or use OpenAI-compatible API
+# glm-4v: pip install zhipuai
+
+# Web UI
+gradio>=4.0.0
+
+# Task queue (optional - for扩展到10+用户)
+# redis>=5.0.0
+# rq>=1.15.0
+
+# Utilities
+python-dotenv>=1.0.0
+pyyaml>=6.0.0
+tqdm>=4.65.0
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
