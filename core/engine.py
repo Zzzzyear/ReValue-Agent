@@ -114,8 +114,20 @@ class ReValueEngine:
             logger.error("Engine process failed: %s", e)
             ctx.status = TaskStatus.FAILED
             ctx.error_message = str(e)
+        finally:
+            await self.close()
 
         return ctx
+
+    async def close(self):
+        """关闭所有 API 客户端 session，释放资源"""
+        for node in [self.node_router, self.node_text]:
+            client = getattr(node, 'api_client', None) or getattr(node, '_llm_client', None)
+            if client and hasattr(client, 'close'):
+                try:
+                    await client.close()
+                except Exception as e:
+                    logger.warning("Failed to close client: %s", e)
 
     async def _process_vision_branch(self, ctx: Context) -> Context:
         """视觉流处理 (Branch A)"""

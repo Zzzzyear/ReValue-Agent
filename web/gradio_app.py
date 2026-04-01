@@ -127,7 +127,7 @@ class ReValueGradioApp:
             progress(0.8, desc="[4/4] 正在渲染装饰与文字...")
             ctx = await self.engine.node_creative.process(ctx)
 
-            ctx.status = self.engine.TaskStatus.COMPLETED
+            ctx.status = TaskStatus.COMPLETED
 
             elapsed = time.time() - start_time
 
