@@ -46,6 +46,7 @@ async def process_single(
     text: str,
     output_dir: str = None,
     verbose: bool = False,
+    platform_style: str = "闲鱼体",
 ) -> dict:
     """
     处理单张图片
@@ -69,7 +70,7 @@ async def process_single(
         logger.info("Description: %s", text)
 
         # 处理
-        ctx = await engine.process(image, text)
+        ctx = await engine.process(image, text, platform_style=platform_style)
 
         elapsed = time.time() - start_time
 
@@ -202,6 +203,11 @@ def main():
     single_parser.add_argument("--text", "-t", required=True, help="商品描述")
     single_parser.add_argument("--output", "-o", default="data/output", help="输出目录")
     single_parser.add_argument("--verbose", "-v", action="store_true", help="详细输出")
+    single_parser.add_argument(
+        "--platform", default="闲鱼体",
+        choices=["闲鱼体", "小红书体"],
+        help="平台文案风格 (默认: 闲鱼体)",
+    )
 
     # 批量处理
     batch_parser = subparsers.add_parser("batch", help="批量处理")
@@ -280,6 +286,7 @@ def main():
             text=args.text,
             output_dir=args.output,
             verbose=args.verbose,
+            platform_style=args.platform,
         ))
 
         sys.exit(0 if result["status"] == "completed" else 1)

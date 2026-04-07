@@ -25,7 +25,7 @@ stable_diffusion:
   model_type: "sd_15"
   # 模型路径 (本地目录或HuggingFace repo_id)
   # 指向包含 model_index.json 的目录（通常是 snapshots/xxx/）
-  model_path: "D:/Code/AI_Playground/projects/ReValue-Agent/models/models--runwayml--stable-diffusion-v1-5/snapshots/451f4fe16113bff5a5d2269ed5ad43b0592e9a14"
+  model_path: "models/AI-ModelScope/stable-diffusion-v1-5"
   # Lora路径 (可选)
   lora_path: ""
   # 推理步数
@@ -35,6 +35,8 @@ stable_diffusion:
   # 生成的图像尺寸
   width: 1024
   height: 1024
+  # 关闭 NSFW 安全检查 (避免误检导致返回黑图)
+  disable_safety_checker: true
   # 显存优化
   enable_attention_slicing: true
   enable_vae_slicing: true
@@ -78,7 +80,7 @@ paths:
   data_intermediate: "data/intermediate"
   data_output: "data/output"
   # 本地SD模型路径
-  sd_model_path: "D:/Code/AI_Playground/projects/ReValue-Agent/models/models--runwayml--stable-diffusion-v1-5/snapshots/451f4fe16113bff5a5d2269ed5ad43b0592e9a14"
+  sd_model_path: "models/AI-ModelScope/stable-diffusion-v1-5"
   # 本地模型缓存目录 (rembg等)
   local_model_cache: "models_cache"
 
@@ -99,7 +101,7 @@ platform_style:
 # 创意合成配置 (Node 2C)
 creative:
   # 字体路径 (Windows中文字体)
-  font_path: "C:/Windows/Fonts/msyh.ttc"
+  font_path: "data/assets/fonts/NotoSansSC-Regular.otf"
   # 默认字体大小
   default_font_size: 48
   # 文字默认配置
@@ -113,3 +115,7 @@ creative:
   max_sparkle_count: 5
   max_heart_count: 3
   max_badge_count: 2
+  # Emoji 贴纸尺寸 (px): small / medium / large
+  emoji_size_small: 80
+  emoji_size_medium: 120
+  emoji_size_large: 180

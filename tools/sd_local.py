@@ -98,6 +98,7 @@ class DiffusersSDGenerator(BaseSDGenerator):
         device: str = "cuda",
         enable_attention_slicing: bool = True,
         enable_vae_slicing: bool = True,
+        disable_safety_checker: bool = False,
     ):
         """
         Args:
@@ -112,6 +113,7 @@ class DiffusersSDGenerator(BaseSDGenerator):
         self.device = device
         self.enable_attention_slicing = enable_attention_slicing
         self.enable_vae_slicing = enable_vae_slicing
+        self.disable_safety_checker = disable_safety_checker
 
         self._pipeline = None
         self._lock = asyncio.Lock()  # 防止并发加载模型
@@ -160,6 +162,12 @@ class DiffusersSDGenerator(BaseSDGenerator):
                     self.model_path,
                     torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
                 )
+
+            # 禁用 NSFW safety checker（避免误检导致返回黑图）
+            if self.disable_safety_checker:
+                pipe.safety_checker = None
+                pipe.requires_safety_checker = False
+                logger.info("NSFW safety checker disabled")
 
             # 显存优化
             if self.enable_attention_slicing:
@@ -292,6 +300,7 @@ def get_sd_generator(config: Dict[str, Any]) -> BaseSDGenerator:
         device=device,
         enable_attention_slicing=sd_config.get("enable_attention_slicing", True),
         enable_vae_slicing=sd_config.get("enable_vae_slicing", True),
+        disable_safety_checker=sd_config.get("disable_safety_checker", False),
     )
 
     logger.info(

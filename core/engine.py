@@ -51,6 +51,7 @@ class ReValueEngine:
         self,
         image: Image.Image,
         text: str,
+        platform_style: str = "闲鱼体",
     ) -> Context:
         """
         主入口: 处理单张图片和文本
@@ -65,6 +66,7 @@ class ReValueEngine:
         ctx = Context(
             original_image=image,
             original_text=text,
+            platform_style=platform_style,
             status=TaskStatus.RUNNING,
         )
 

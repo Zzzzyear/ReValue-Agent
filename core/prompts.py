@@ -21,16 +21,16 @@ VLM_SYSTEM_PROMPT = """你是一个专业的电商图像分析助手。你的任
     "reference_box": [x_min, y_min, x_max, y_max],
     "creative_elements": [
         {
-            "type": "sparkle",
+            "emoji": "✨",
             "position": "top-right",
             "count": 3,
-            "size": "small"
+            "size": "medium"
         },
         {
-            "type": "price_badge",
+            "emoji": "💰",
             "position": "bottom-left",
-            "text": "2.8w",
-            "style": "rounded_rect"
+            "count": 1,
+            "size": "large"
         }
     ],
     "text_placement": {
@@ -42,23 +42,24 @@ VLM_SYSTEM_PROMPT = """你是一个专业的电商图像分析助手。你的任
 ## 输出规范
 - subject: 简洁明确的商品品类名称，2-5个字
 - selling_points: 3-4个核心卖点，结合成色和价格提炼，要具体有吸引力
-- background_prompt: 英文，描述商业摄影风格背景，包含光线、氛围、风格等要素，以"8k, professional product photography"结尾
+- background_prompt: 英文单句，优先生成百搭商业背景（纯色渐变、轻纹理墙面、柔和光斑、极简棚拍）；强调 clean/minimal/neutral tones/soft lighting/shallow depth of field；禁止出现其他商品、人像、复杂室内元素或文字水印；以"clean background, minimal scene, no extra objects, 8k, professional product photography"结尾
 - reference_box: 如果商品主体明确，给出其在图片中的相对边界框坐标 [左, 上, 右, 下]，范围0-1。如果不确定，设为 null
 
-## creative_elements 装饰元素说明
-- type: 装饰类型，可选值：
-  - sparkle: 闪光/星星
-  - star: 星形
-  - heart: 心形
-  - badge: 徽章
-  - price_tag: 价格标签
-  - ribbon: 丝带
-  - circle_decoration: 圆形装饰
+## creative_elements 装饰元素说明（Emoji 贴纸）
+每个装饰元素使用一个 emoji 表情作为贴纸，直接渲染到图片上。
+- emoji: 一个 emoji 表情字符。根据商品品类和调性选择合适的 emoji，例如：
+  - 奢侈品/高端：✨ 💎 👑 🌟 ⭐
+  - 潮流/运动：🔥 ⚡ 💯 🏆 💪
+  - 可爱/女性：💕 💖 🌸 🎀 🦋
+  - 数码/科技：💡 🚀 ⚙️ 🎮 📱
+  - 家居/日用：🏠 🌿 ☕ 🛋️ 🪴
+  - 价格/促销：💰 🏷️ 💲 🎁 🎉
 - position: 位置，可选值：top-left, top-right, bottom-left, bottom-right, top-center, bottom-center, center
-- count: 数量，1-5，对 sparkle/star/heart 有效
+- count: 数量，1-5
 - size: 大小，可选值：small, medium, large
-- text: 标签文字，仅对 badge/price_tag 有效
-- style: 样式，仅对 badge 有效，可选值：rounded_rect, circle, star
+
+请根据商品的品类、价位、目标人群自由选择最匹配的 emoji，不限于以上示例。
+选择 2-4 个不同的 emoji 元素，放在图片的不同位置，营造电商主图的氛围感。
 
 ## text_placement 文字位置说明
 - region: 文字放置区域，可选值：top_center, bottom_center, overlay
@@ -66,7 +67,7 @@ VLM_SYSTEM_PROMPT = """你是一个专业的电商图像分析助手。你的任
 
 ## 示例输出
 输入：九成新办公椅，100元
-输出：{"subject": "办公椅", "selling_points": ["九成新", "100元超低价", "黑色经典款", "可调节高度"], "background_prompt": "minimalist office interior, soft natural lighting from window, clean white wall, modern workspace ambiance, 8k, professional product photography", "reference_box": [0.3, 0.2, 0.7, 0.8], "creative_elements": [{"type": "sparkle", "position": "top-right", "count": 3, "size": "small"}, {"type": "price_tag", "position": "bottom-left", "text": "100元", "style": "rounded_rect"}], "text_placement": {"region": "bottom_center", "max_width_ratio": 0.8}}
+输出：{"subject": "办公椅", "selling_points": ["九成新", "100元超低价", "黑色经典款", "可调节高度"], "background_prompt": "minimalist office interior, soft natural lighting from window, clean white wall, modern workspace ambiance, 8k, professional product photography", "reference_box": [0.3, 0.2, 0.7, 0.8], "creative_elements": [{"emoji": "✨", "position": "top-right", "count": 2, "size": "small"}, {"emoji": "💰", "position": "top-left", "count": 1, "size": "medium"}, {"emoji": "🔥", "position": "top-center", "count": 1, "size": "small"}], "text_placement": {"region": "bottom_center", "max_width_ratio": 0.8}}
 
 注意：只输出JSON，不要有任何其他内容。"""
 
@@ -87,7 +88,8 @@ FALLBACK_JSON = {
     "background_prompt": "minimalist white background, soft studio lighting, clean and bright atmosphere, 8k, professional product photography",
     "reference_box": None,
     "creative_elements": [
-        {"type": "sparkle", "position": "top-right", "count": 3, "size": "small"},
+        {"emoji": "✨", "position": "top-right", "count": 2, "size": "small"},
+        {"emoji": "🔥", "position": "top-left", "count": 1, "size": "medium"},
     ],
     "text_placement": {"region": "bottom_center", "max_width_ratio": 0.8},
 }
@@ -196,7 +198,8 @@ def get_copy_prompts(
     }
 
     platform_config = platform_configs.get(platform_style, platform_configs["闲鱼体"])
-    platform_style_str = f"平台：闲鱼\n特点：Emoji={platform_config['emoji_enabled']}, 标题≤{platform_config['max_title_length']}字, 正文≤{platform_config['max_content_length']}字"
+    platform_name = "小红书" if platform_style == "小红书体" else "闲鱼"
+    platform_style_str = f"平台：{platform_name}\n特点：Emoji={platform_config['emoji_enabled']}, 标题≤{platform_config['max_title_length']}字, 正文≤{platform_config['max_content_length']}字"
 
     return {
         "system": COPY_SYSTEM_PROMPT_TEMPLATE.format(platform_style=platform_style_str),
@@ -292,10 +295,10 @@ def parse_json_from_response(response: str) -> Dict:
         else:
             result["reference_box"] = None
 
-        # 提取 creative_elements (简化处理)
+        # 提取 creative_elements (简化处理 — 回退到 FALLBACK)
         ce_match = re.search(r'"creative_elements"\s*:\s*\[(.*?)\]', response, re.DOTALL)
         if ce_match:
-            result["creative_elements"] = [{"type": "sparkle", "position": "top-right", "count": 3, "size": "small"}]
+            result["creative_elements"] = FALLBACK_JSON["creative_elements"]
         else:
             result["creative_elements"] = FALLBACK_JSON.get("creative_elements", [])
 

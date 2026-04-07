@@ -76,6 +76,9 @@ class NodeCreative:
             # 获取文字放置配置
             text_placement = ctx.text_placement or {"region": "bottom_center", "max_width_ratio": 0.8}
 
+            # Step 0: 解决装饰元素与文字区域的位置冲突
+            elements = self._resolve_position_conflicts(elements, text_placement)
+
             # Step 1: 渲染装饰元素
             decorated = await self._render_decorations(ctx.final_image, elements)
 
@@ -106,21 +109,43 @@ class NodeCreative:
             final_copy: 文案字典 {title, content}
 
         Returns:
-            凝练后的标题
+            凝练后的标题（Emoji 由 TextRenderer.render 统一处理）
         """
         if not final_copy:
             return ""
 
         title = final_copy.get("title", "")
+        title = title.strip().strip("…").strip()
+        return title
 
-        # 凝练标题：移除emoji前缀，保留核心文字
-        import re
-        # 移除开头的emoji
-        title = re.sub(r'^[\s]*[^\w\s]+[\s]*', '', title)
-        # 移除特殊符号结尾的省略号
-        title = re.sub(r'[\s…]+$', '', title)
+    _BOTTOM_TO_TOP = {
+        "bottom-left": "top-left",
+        "bottom-right": "top-right",
+        "bottom-center": "top-center",
+    }
 
-        return title.strip()
+    @staticmethod
+    def _resolve_position_conflicts(
+        elements: list,
+        text_placement: Dict[str, Any],
+    ) -> list:
+        """将与文字区域重叠的装饰元素重定位到对应的顶部位置"""
+        text_region = text_placement.get("region", "bottom_center")
+        text_at_bottom = "bottom" in text_region
+
+        if not text_at_bottom or not elements:
+            return elements
+
+        resolved = []
+        for elem in elements:
+            pos = elem.get("position", "")
+            if "bottom" in pos:
+                new_pos = NodeCreative._BOTTOM_TO_TOP.get(pos, "top-left")
+                elem = {**elem, "position": new_pos}
+                label = elem.get("emoji") or elem.get("type", "?")
+                logger.debug("Decoration '%s' relocated: %s -> %s", label, pos, new_pos)
+            resolved.append(elem)
+        return resolved
 
     async def _render_decorations(
         self,
@@ -141,7 +166,7 @@ class NodeCreative:
             return image
 
         try:
-            return DecorationRenderer.render_elements(image, elements)
+            return self.deco_renderer.render_elements(image, elements)
         except Exception as e:
             logger.warning("Decoration rendering failed: %s", e)
             return image

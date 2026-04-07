@@ -29,22 +29,37 @@ logger = logging.getLogger(__name__)
 
 def _get_shared_api_config() -> Dict[str, Any]:
     """
-    从共享目录加载 API 配置
+    从配置文件加载 API 配置
 
     配置优先级（从高到低）：
-    1. 环境变量（生产环境）
-    2. shared/api_keys_local.yaml（本地覆盖）
-    3. shared/api_keys.yaml（模板配置）
+    1. conf/secrets.local.yaml（项目内本地密钥，首选）
+    2. shared/api_keys_local.yaml（跨项目本地覆盖）
+    3. shared/api_keys.yaml（跨项目模板配置）
 
     Returns:
         API 配置字典
     """
     import yaml
 
-    # 共享配置目录（向上两级到 AI_Playground，再进入 shared）
-    shared_dir = Path(__file__).parent.parent.parent.parent / "shared"
+    # 项目根目录
+    project_root = Path(__file__).parent.parent
 
-    # 优先加载本地覆盖配置
+    # 1. 优先从项目内 conf/secrets.local.yaml 加载（首选路径）
+    secrets_path = project_root / "conf" / "secrets.local.yaml"
+    if secrets_path.exists():
+        try:
+            with open(secrets_path, "r", encoding="utf-8") as f:
+                config = yaml.safe_load(f)
+                if config and config.get("dashscope", {}).get("api_key"):
+                    logger.info("Using API config from conf/secrets.local.yaml")
+                    return config
+        except Exception as e:
+            logger.warning(f"Failed to load conf/secrets.local.yaml: {e}")
+
+    # 2. 回退到共享配置目录（向上两级到 AI_Playground，再进入 shared）
+    shared_dir = project_root.parent.parent / "shared"
+
+    # 本地覆盖配置
     local_config_path = shared_dir / "api_keys_local.yaml"
     if local_config_path.exists():
         try:
@@ -56,7 +71,7 @@ def _get_shared_api_config() -> Dict[str, Any]:
         except Exception as e:
             logger.warning(f"Failed to load local API config: {e}")
 
-    # 加载模板配置
+    # 模板配置
     template_config_path = shared_dir / "api_keys.yaml"
     if template_config_path.exists():
         try:
@@ -69,7 +84,7 @@ def _get_shared_api_config() -> Dict[str, Any]:
             logger.warning(f"Failed to load template API config: {e}")
 
     # 返回空配置，使用环境变量
-    logger.warning("No shared API config found, using environment variables")
+    logger.warning("No API config file found, falling back to environment variables")
     return {}
 
 
