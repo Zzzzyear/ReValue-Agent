@@ -156,8 +156,17 @@ async def process_batch(
     for i, img_file in enumerate(image_files, 1):
         print(f"[{i}/{len(image_files)}] ", end="", flush=True)
 
-        # 使用文件名作为默认描述
+        # 优先从同名 .json 文件读取描述
+        json_sidecar = img_file.with_suffix(".json")
         text = f"二手商品，{img_file.stem}"
+        if json_sidecar.exists():
+            try:
+                with open(json_sidecar, "r", encoding="utf-8") as jf:
+                    meta = json.load(jf)
+                text = meta.get("description", text)
+            except Exception:
+                pass
+
         result = await process_single(
             engine=engine,
             image_path=str(img_file),

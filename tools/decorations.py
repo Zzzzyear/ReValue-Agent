@@ -108,6 +108,8 @@ class DecorationRenderer:
         "top-center": lambda w, h, ew, eh: ((w - ew) // 2, int(h * 0.03)),
         "bottom-center": lambda w, h, ew, eh: ((w - ew) // 2, int(h * 0.85)),
         "center": lambda w, h, ew, eh: ((w - ew) // 2, (h - eh) // 2),
+        "center-left": lambda w, h, ew, eh: (int(w * 0.05), (h - eh) // 2),
+        "center-right": lambda w, h, ew, eh: (int(w * 0.85), (h - eh) // 2),
     }
 
     def __init__(self, **kwargs):

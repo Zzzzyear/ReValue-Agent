@@ -118,9 +118,9 @@ class NodeCreative:
         title = title.strip().strip("…").strip()
         return title
 
-    _BOTTOM_TO_TOP = {
-        "bottom-left": "top-left",
-        "bottom-right": "top-right",
+    _BOTTOM_RELOCATE = {
+        "bottom-left": "center-left",
+        "bottom-right": "center-right",
         "bottom-center": "top-center",
     }
 
@@ -129,7 +129,7 @@ class NodeCreative:
         elements: list,
         text_placement: Dict[str, Any],
     ) -> list:
-        """将与文字区域重叠的装饰元素重定位到对应的顶部位置"""
+        """将与底部文字区域重叠的装饰元素重定位到中部/顶部位置"""
         text_region = text_placement.get("region", "bottom_center")
         text_at_bottom = "bottom" in text_region
 
@@ -140,7 +140,7 @@ class NodeCreative:
         for elem in elements:
             pos = elem.get("position", "")
             if "bottom" in pos:
-                new_pos = NodeCreative._BOTTOM_TO_TOP.get(pos, "top-left")
+                new_pos = NodeCreative._BOTTOM_RELOCATE.get(pos, "center-left")
                 elem = {**elem, "position": new_pos}
                 label = elem.get("emoji") or elem.get("type", "?")
                 logger.debug("Decoration '%s' relocated: %s -> %s", label, pos, new_pos)

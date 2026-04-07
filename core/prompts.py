@@ -54,12 +54,17 @@ VLM_SYSTEM_PROMPT = """你是一个专业的电商图像分析助手。你的任
   - 数码/科技：💡 🚀 ⚙️ 🎮 📱
   - 家居/日用：🏠 🌿 ☕ 🛋️ 🪴
   - 价格/促销：💰 🏷️ 💲 🎁 🎉
-- position: 位置，可选值：top-left, top-right, bottom-left, bottom-right, top-center, bottom-center, center
-- count: 数量，1-5
+- position: 贴纸放置位置，可选值：
+  - 四角：top-left, top-right, bottom-left, bottom-right
+  - 边缘中部：top-center, center-left, center-right
+  - 中心：center
+  注意：图片底部中央会放置文字标题，**请避免使用 bottom-center**。
+  请让贴纸分散在图片各处，不要全部集中在顶部，可以利用 center-left、center-right 等中部位置。
+- count: 数量，1-3
 - size: 大小，可选值：small, medium, large
 
 请根据商品的品类、价位、目标人群自由选择最匹配的 emoji，不限于以上示例。
-选择 2-4 个不同的 emoji 元素，放在图片的不同位置，营造电商主图的氛围感。
+选择 2-4 个不同的 emoji 元素，分散放在图片的不同区域（如左上+右中+左中），营造电商主图的氛围感。
 
 ## text_placement 文字位置说明
 - region: 文字放置区域，可选值：top_center, bottom_center, overlay
@@ -67,7 +72,7 @@ VLM_SYSTEM_PROMPT = """你是一个专业的电商图像分析助手。你的任
 
 ## 示例输出
 输入：九成新办公椅，100元
-输出：{"subject": "办公椅", "selling_points": ["九成新", "100元超低价", "黑色经典款", "可调节高度"], "background_prompt": "minimalist office interior, soft natural lighting from window, clean white wall, modern workspace ambiance, 8k, professional product photography", "reference_box": [0.3, 0.2, 0.7, 0.8], "creative_elements": [{"emoji": "✨", "position": "top-right", "count": 2, "size": "small"}, {"emoji": "💰", "position": "top-left", "count": 1, "size": "medium"}, {"emoji": "🔥", "position": "top-center", "count": 1, "size": "small"}], "text_placement": {"region": "bottom_center", "max_width_ratio": 0.8}}
+输出：{"subject": "办公椅", "selling_points": ["九成新", "100元超低价", "黑色经典款", "可调节高度"], "background_prompt": "minimalist office interior, soft natural lighting from window, clean white wall, modern workspace ambiance, 8k, professional product photography", "reference_box": [0.3, 0.2, 0.7, 0.8], "creative_elements": [{"emoji": "✨", "position": "top-right", "count": 2, "size": "small"}, {"emoji": "💰", "position": "center-left", "count": 1, "size": "medium"}, {"emoji": "🔥", "position": "bottom-left", "count": 1, "size": "small"}], "text_placement": {"region": "bottom_center", "max_width_ratio": 0.8}}
 
 注意：只输出JSON，不要有任何其他内容。"""
 
