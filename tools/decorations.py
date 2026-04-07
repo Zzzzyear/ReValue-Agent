@@ -1,7 +1,7 @@
 """
 Re-Value Agent - 装饰元素绘制器
 支持两种模式：
-1. Emoji 贴纸模式（推荐）：大模型输出 emoji 字符，用 pilmoji 渲染为大尺寸贴纸
+1. Emoji 贴纸模式（推荐）：大模型输出 emoji 字符，用本地 Noto Color Emoji 字体渲染
 2. 旧 type 模式（向后兼容）：使用 PIL 手绘 sparkle/star/heart 等图形
 """
 
@@ -9,8 +9,7 @@ import logging
 import math
 import os
 import random
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -18,34 +17,49 @@ logger = logging.getLogger(__name__)
 
 _EMOJI_PIXEL_SIZE_MAP = {"small": 80, "medium": 120, "large": 180}
 
+_EMOJI_FONT_PATHS = [
+    "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+    "/usr/share/fonts/noto-cjk/NotoColorEmoji.ttf",
+    "/System/Library/Fonts/Apple Color Emoji.ttc",
+    "C:/Windows/Fonts/seguiemj.ttf",
+]
+
+
+def _find_emoji_font() -> Optional[str]:
+    for p in _EMOJI_FONT_PATHS:
+        if os.path.exists(p):
+            return p
+    return None
+
 
 def _render_emoji_to_image(emoji_char: str, target_px: int) -> Optional[Image.Image]:
     """
-    将单个 emoji 字符渲染为 RGBA 透明底 Image，最终缩放到 target_px 大小。
-    使用 pilmoji（内置 Twemoji CDN 彩色 emoji）渲染。
+    将单个 emoji 字符渲染为 RGBA 透明底 Image，缩放到 target_px 大小。
+    使用本地 Noto Color Emoji 字体 + Pillow embedded_color 渲染，无需联网。
     """
-    try:
-        from pilmoji import Pilmoji
-    except ImportError:
-        logger.warning("pilmoji not installed, emoji rendering disabled")
+    font_path = _find_emoji_font()
+    if font_path is None:
+        logger.warning("No color emoji font found, emoji rendering disabled")
         return None
 
-    render_size = 160
-    canvas = render_size * 3
+    # Noto Color Emoji 内置 128px 位图，用 109 可获得最清晰渲染
+    render_size = 109
+    padding = render_size
+    canvas = render_size + padding * 2
     img = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
 
     try:
-        font = ImageFont.truetype(
-            "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf", render_size
-        )
-    except Exception:
-        font = ImageFont.load_default()
-
-    try:
-        with Pilmoji(img) as pmj:
-            pmj.text((render_size, render_size), emoji_char, font=font, fill=(255, 255, 255, 255))
+        font = ImageFont.truetype(font_path, render_size)
     except Exception as e:
-        logger.warning("pilmoji render failed: %s", e)
+        logger.warning("Failed to load emoji font: %s", e)
+        return None
+
+    draw = ImageDraw.Draw(img)
+    try:
+        draw.text((padding, padding), emoji_char, font=font,
+                  fill=(255, 255, 255, 255), embedded_color=True)
+    except Exception as e:
+        logger.warning("Emoji draw failed for '%s': %s", emoji_char, e)
         return None
 
     bbox = img.getbbox()
