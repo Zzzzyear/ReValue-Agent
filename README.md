@@ -1,323 +1,244 @@
 # Re-Value Agent
 
-> 二手商品图文创意自动化视觉 Agent
+> Automated Visual Creative Agent for Secondhand Product Images
 
-基于视觉大语言模型（VLM）的多步推理 Agent，输入卖家随手拍摄的商品原图及极简描述，自动完成"商品特征提取、高质量抠图、场景重绘、文案生成及图文合成"的全链路创意优化。
-
----
-
-## 目录
-
-1. [项目概述](#1-项目概述)
-2. [系统架构](#2-系统架构)
-3. [目录结构与代码说明](#3-目录结构与代码说明)
-4. [环境配置与运行](#4-环境配置与运行)
-5. [API 配置](#5-api-配置)
-6. [测试与调试](#6-测试与调试)
-7. [输出文件说明](#7-输出文件说明)
-8. [团队分工与下一步工作](#8-团队分工与下一步工作)
-9. [常见问题](#9-常见问题)
+A VLM-powered multi-step reasoning agent that transforms seller-taken product photos and minimal descriptions into e-commerce-ready images with professional backgrounds, creative decorations, and marketing copy.
 
 ---
 
-## 1. 项目概述
+## Table of Contents
 
-### 1.1 业务背景
-
-C2C 交易平台（如闲鱼、eBay）的个人卖家通常缺乏专业的拍摄和文案能力。背景杂乱、光线昏暗的实拍图严重降低了商品的转化率和溢价空间。
-
-### 1.2 项目目标
-
-**输入**：
-- 商品原图（随手拍摄）
-- 极简描述（如"九成新办公椅，100元"）
-
-**输出**：
-- 电商级主图（高质量抠图 + 专业背景 + 阴影融合 + 创意装饰元素 + 文字渲染）
-- 营销文案（吸睛标题 + 结构化描述 + Emoji）
-
-### 1.3 技术选型
-
-| 模块 | 技术 | 说明 |
-|------|------|------|
-| VLM 规划器 | **qwen3.5-plus** | 阿里百炼，多模态支持图片输入 |
-| LLM 文案 | **qwen-plus** | 阿里百炼，文本生成 |
-| 抠图 | rembg (u2net) | 本地运行，约 176MB |
-| 生图 | Stable Diffusion 1.5 | 本地运行，约 6GB，RTX 4060 可流畅运行 |
-| 异步框架 | Python asyncio | 异步并发 DAG |
-| Web UI | Gradio | 交互界面 |
+1. [Overview](#1-overview)
+2. [System Architecture](#2-system-architecture)
+3. [Project Structure](#3-project-structure)
+4. [Environment Setup](#4-environment-setup)
+5. [API Configuration](#5-api-configuration)
+6. [Output Files](#6-output-files)
 
 ---
 
-## 2. 系统架构
+## 1. Overview
 
-### 2.1 整体架构图
+### 1.1 Problem Statement
+
+Individual sellers on C2C platforms (e.g., Xianyu, eBay) lack professional photography and copywriting skills. Poor-quality images with cluttered backgrounds and bad lighting significantly reduce product conversion rates and pricing power.
+
+### 1.2 Project Goal
+
+**Input:**
+- Product photo (casually shot)
+- Minimal description (e.g., "Used office chair, $100")
+
+**Output:**
+- E-commerce hero image (high-quality matting + professional background + shadow blending + creative decorations + rendered text)
+- Marketing copy (eye-catching title + structured description + Emoji)
+
+### 1.3 Technology Stack
+
+| Module | Technology | Notes |
+|--------|------------|-------|
+| VLM Planner | **qwen3.5-plus** | Alibaba DashScope, multimodal image input |
+| LLM Copywriter | **qwen-plus** | Alibaba DashScope, text generation |
+| Matting | rembg (u2net) | Local, ~176MB |
+| Image Generation | Stable Diffusion 1.5 | Local, ~6GB, RTX 4060 recommended |
+| Async Framework | Python asyncio | Async concurrent DAG |
+| Web UI | Gradio | Interactive interface |
+
+---
+
+## 2. System Architecture
+
+### 2.1 Pipeline Overview
 
 ```
                               ┌─────────────────┐
-                              │   用户输入       │
-                              │  (图片 + 简述)   │
+                              │   User Input     │
+                              │  (Image + Text)  │
                               └────────┬────────┘
                                        │
                                        ▼
 ┌──────────────────────────────────────────────────────────────┐
-│                     Node 1: VLM 联合感知                      │
-│  输入: Base64图片 + 原始描述                                   │
-│  输出: JSON {subject, selling_points, background_prompt,      │
+│                   Node 1: VLM Routing                        │
+│  Input: Base64 Image + Raw Description                       │
+│  Output: JSON {subject, selling_points, background_prompt,  │
 │        reference_box, creative_elements, text_placement}    │
-│  模型: qwen3.5-plus (阿里百炼)                                │
+│  Model: qwen3.5-plus (Alibaba DashScope)                    │
 └─────────────────────────────┬────────────────────────────────┘
                               │
               ┌───────────────┴───────────────┐
               │                               │
               ▼                               ▼
 ┌─────────────────────────┐   ┌─────────────────────────────┐
-│   Node 2A: 视觉流        │   │     Node 2B: 文案流        │
-│  Step 1: rembg 抠图     │   │  Step 1: 组装文案 Prompt   │
-│  Step 2: SD 生图        │   │  Step 2: 调用 LLM API      │
-│  Step 3: 图像融合+阴影   │   │  Step 3: 解析 JSON 输出   │
+│   Node 2A: Vision Flow  │   │     Node 2B: Text Flow       │
+│  Step 1: rembg Matting  │   │  Step 1: Assemble Prompt     │
+│  Step 2: SD Generation  │   │  Step 2: Call LLM API        │
+│  Step 3: Image Fusion   │   │  Step 3: Parse JSON Output    │
 └────────────┬────────────┘   └──────────────┬───────────────┘
              │                              │
              └──────────────┬─────────────────┘
                             ▼
 ┌──────────────────────────────────────────────────────────────┐
-│                Node 2C: 创意合成                               │
-│  • 渲染装饰元素 (sparkle, badge, heart等)                     │
-│  • 渲染文字到图像 (底部居中)                                  │
-│  • 输出 decorated_image (带文字和装饰的最终图)                  │
+│                Node 2C: Creative Composition                 │
+│  • Render decorative elements (sparkle, badge, heart, etc.) │
+│  • Render text onto image (bottom-center)                   │
+│  • Output decorated_image (final composite)                 │
 └──────────────────────────────────────────────────────────────┘
                             │
                             ▼
-                      最终输出
+                      Final Output
 ```
 
-### 2.2 异步并行 DAG
+### 2.2 Async Parallel DAG
 
-系统采用 **asyncio** 实现异步并发 DAG 管线：
-- 全局 `asyncio.Semaphore(2)` 限制并发请求峰值
-- 视觉流（Node 2A）与文本流（Node 2B）**真正并行**执行
-- SD 生图使用 `run_in_executor()` 避免阻塞事件循环
+The system uses **asyncio** for async concurrent DAG pipeline:
+- Global `asyncio.Semaphore(2)` limits concurrent request peaks
+- Vision flow (Node 2A) and Text flow (Node 2B) execute in true parallel
+- SD generation uses `run_in_executor()` to avoid blocking the event loop
 
-### 2.3 重试机制
+### 2.3 Retry Mechanism
 
-所有外部网络请求均使用 **tenacity** 库实现指数退避重试：
-- 最大重试 3 次
-- 等待时间：2s → 4s → 8s（指数退避）
-- 最终兜底：使用 fallback 值
+All external network requests use **tenacity** for exponential backoff retry:
+- Max 3 retries
+- Wait time: 2s → 4s → 8s (exponential backoff)
+- Final fallback: use fallback values
 
 ---
 
-## 3. 目录结构与代码说明
+## 3. Project Structure
 
 ```
 ReValue-Agent/
 ├── conf/
-│   └── config.yaml              # 全局配置文件（模型参数、路径、超时等）
-├── core/                        # 核心业务逻辑
+│   └── config.yaml              # Global configuration (models, paths, timeouts)
+├── core/                        # Core business logic
 │   ├── __init__.py
-│   ├── engine.py               # DAG 调度引擎（ReValueEngine 类）
-│   ├── context.py             # Context 数据类（在节点间传递的上下文）
-│   ├── prompts.py             # Prompt 模板管理（VLM/LLM prompts）
-│   ├── node_router.py         # Node 1: VLM 路由（图像分析）
-│   ├── node_vision.py         # Node 2A: 视觉流（抠图→生图→融合）
-│   ├── node_text.py           # Node 2B: 文案流（营销文案生成）
-│   └── node_creative.py       # Node 2C: 创意合成（装饰+文字渲染）
-├── tools/                      # 原子工具模块
+│   ├── engine.py               # DAG scheduling engine (ReValueEngine class)
+│   ├── context.py             # Context dataclass (data passing between nodes)
+│   ├── prompts.py             # Prompt template management
+│   ├── node_router.py         # Node 1: VLM routing (image analysis)
+│   ├── node_vision.py         # Node 2A: Vision flow (matting → generation → fusion)
+│   ├── node_text.py           # Node 2B: Text flow (marketing copy generation)
+│   └── node_creative.py       # Node 2C: Creative composition (decorations + text)
+├── tools/                      # Atomic tool modules
 │   ├── __init__.py
-│   ├── api_clients.py        # 统一 API 客户端（VLM/LLM），内置重试机制
-│   ├── cv_utils.py           # 图像处理工具
-│   │   ├── MattingTool       # rembg 抠图封装
-│   │   ├── ShadowRenderer    # 阴影渲染
-│   │   ├── ImageFusion       # 图像融合
-│   │   └── resize_if_needed  # 图像缩放辅助
-│   ├── sd_local.py           # 本地 SD 推理封装
-│   │   ├── BaseSDGenerator   # SD 生成器抽象基类
-│   │   ├── DummySDGenerator  # 占位符生成器（无 GPU 时使用）
-│   │   └── DiffusersSDGenerator # 真实 SD 生成器（Diffusers 库）
-│   ├── text_renderer.py       # 文字渲染器
-│   │   ├── TextRenderer      # 主渲染器类
-│   │   └── render_title_on_image # 便捷函数
-│   └── decorations.py         # 装饰元素绘制
-│       └── DecorationRenderer # 装饰渲染器（sparkle, badge, heart 等）
+│   ├── api_clients.py        # Unified API client (VLM/LLM) with retry mechanism
+│   ├── cv_utils.py           # Image processing tools
+│   │   ├── MattingTool       # rembg matting wrapper
+│   │   ├── ShadowRenderer    # Shadow rendering
+│   │   ├── ImageFusion       # Image fusion
+│   │   └── resize_if_needed  # Image resizing helper
+│   ├── sd_local.py           # Local SD inference wrapper
+│   │   ├── BaseSDGenerator   # SD generator abstract base class
+│   │   ├── DummySDGenerator  # Placeholder generator (no GPU fallback)
+│   │   └── DiffusersSDGenerator # Real SD generator (Diffusers library)
+│   ├── text_renderer.py       # Text renderer
+│   │   ├── TextRenderer      # Main renderer class
+│   │   └── render_title_on_image # Convenience function
+│   └── decorations.py         # Decorative element rendering
+│       └── DecorationRenderer # Decoration renderer (sparkle, badge, heart, etc.)
 ├── web/
 │   ├── __init__.py
-│   └── gradio_app.py         # Gradio 交互界面
-├── tests/                     # 测试脚本
+│   └── gradio_app.py         # Gradio interactive interface
+├── tests/                     # Test scripts
 │   ├── __init__.py
-│   ├── test_01_vlm.py        # VLM 模块测试（记录完整 prompt 输入输出）
-│   ├── test_02_copy.py       # Copy 文案模块测试
-│   ├── test_03_vision.py     # Vision 视觉模块测试（抠图/SD/融合）
-│   ├── test_04_creative.py   # Creative 创意模块测试
-│   ├── run_full_pipeline.py  # 完整流程批量测试
-│   ├── run_tests.py          # 组件快速测试
-│   ├── test_panel.py         # Gradio 测试面板
-│   ├── eval_batch.py         # 批量评估脚本
-│   └── test_vision.py        # 视觉模块单元测试
+│   ├── test_01_vlm.py        # VLM module test (logs full prompt I/O)
+│   ├── test_02_copy.py       # Copy module test
+│   ├── test_03_vision.py     # Vision module test (matting/SD/fusion)
+│   ├── test_04_creative.py   # Creative module test
+│   ├── run_full_pipeline.py  # Full pipeline batch test
+│   ├── run_tests.py          # Quick component test
+│   ├── test_panel.py         # Gradio test panel
+│   ├── eval_batch.py         # Batch evaluation script
+│   └── test_vision.py        # Vision module unit test
 ├── data/
-│   ├── original/              # 原始测试图片
-│   ├── input/                # 测试输入图片（与 .json 描述配对）
-│   ├── intermediate/         # 中间产物（测试用）
-│   └── output/               # 最终输出目录
-│       └── logs/             # 模块测试日志
-│           ├── vlm/          # VLM 完整日志
-│           ├── copy/         # Copy 完整日志
-│           ├── vision/       # Vision 完整日志
-│           └── creative/     # Creative 完整日志
-├── main.py                   # CLI 主入口（正式运行用）
-├── requirements.txt          # Python 依赖
-└── .gitignore               # Git 忽略配置
+│   ├── original/              # Original test images
+│   ├── input/                # Test input images (paired with .json descriptions)
+│   ├── intermediate/         # Intermediate outputs (for testing)
+│   └── output/               # Final output directory
+│       └── logs/             # Module test logs
+│           ├── vlm/          # VLM complete logs
+│           ├── copy/         # Copy complete logs
+│           ├── vision/       # Vision complete logs
+│           └── creative/     # Creative complete logs
+├── scripts/                   # Utility scripts
+│   ├── test_emoji.py         # Emoji rendering test
+│   └── test_emoji_on_real.py # Emoji rendering test on real image
+├── data/assets/               # Asset files
+│   └── stickers/             # Decorative sticker assets
+├── main.py                    # CLI main entry point
+├── requirements.txt           # Python dependencies
+└── .gitignore               # Git ignore configuration
 ```
 
-### 3.1 core/ 核心模块详解
+### 3.1 Core Modules
 
-#### engine.py - 主调度引擎
+#### engine.py - Main Scheduling Engine
 
-`ReValueEngine` 是整个 Agent 的"大脑"，负责 DAG 调度和结果汇聚。
+`ReValueEngine` is the "brain" of the agent, responsible for DAG scheduling and result aggregation.
 
 ```python
 class ReValueEngine:
     def __init__(self, config: dict, semaphore_limit: int = 2)
     async def process(self, image: Image.Image, text: str) -> Context
-    async def _process_vision_branch(ctx: Context) -> Context  # Node 2A
-    async def _process_text_branch(ctx: Context) -> Context    # Node 2B
 ```
 
-**Context 数据类**是贯穿整个管线的核心数据结构：
+#### context.py - Context Dataclass
+
+The `Context` dataclass is the core data structure flowing through the pipeline:
 
 ```python
 @dataclass
 class Context:
-    # 输入
     original_image: Image.Image
     original_text: str
-
-    # Node 1 输出 (VLM)
-    subject: str                    # 商品品类（如"凯莉包"）
-    selling_points: List[str]       # 卖点列表
-    background_prompt: str           # SD 背景描述
-    reference_box: List[float]      # 商品边界框 [x_min, y_min, x_max, y_max]
-    creative_elements: List[dict]    # 装饰元素配置
-    text_placement: dict            # 文字放置配置
-
-    # Node 2A 输出 (Vision)
-    matted_image_rgba: Image.Image  # 抠图结果
-    background_image: Image.Image     # SD 背景图
-    final_image: Image.Image         # 融合结果
-
-    # Node 2B 输出 (Text)
-    final_copy: dict                # {"title": "...", "content": "..."}
-
-    # Node 2C 输出 (Creative)
-    decorated_image: Image.Image     # 最终合成图
-
-    # 状态
+    subject: str
+    selling_points: List[str]
+    background_prompt: str
+    reference_box: List[float]
+    creative_elements: List[dict]
+    text_placement: dict
+    matted_image_rgba: Image.Image
+    background_image: Image.Image
+    final_image: Image.Image
+    final_copy: dict
+    decorated_image: Image.Image
     status: TaskStatus
     error_message: str
 ```
 
-#### prompts.py - Prompt 管理
+#### prompts.py - Prompt Management
 
-管理所有 VLM/LLM 的 System Prompt 和 User Prompt 模板：
+Manages all VLM/LLM system prompts and user prompt templates:
 
-| 常量 | 用途 |
-|------|------|
-| `VLM_SYSTEM_PROMPT` | VLM 分析图片时的系统提示 |
-| `VLM_USER_PROMPT_TEMPLATE` | VLM 用户模板 |
-| `COPY_SYSTEM_PROMPT_TEMPLATE` | 文案生成系统提示（支持闲鱼体/小红书体）|
-| `COPY_USER_PROMPT_TEMPLATE` | 文案生成用户模板 |
-| `FALLBACK_JSON` | VLM 解析失败时的兜底输出 |
+| Constant | Purpose |
+|----------|---------|
+| `VLM_SYSTEM_PROMPT` | VLM image analysis system prompt |
+| `VLM_USER_PROMPT_TEMPLATE` | VLM user template |
+| `COPY_SYSTEM_PROMPT_TEMPLATE` | Copy generation system prompt |
+| `COPY_USER_PROMPT_TEMPLATE` | Copy generation user template |
+| `FALLBACK_JSON` | Fallback output on VLM parse failure |
 
-关键函数：
-- `get_vlm_prompts(original_text)` → 返回 VLM 的 system + user prompt
-- `get_copy_prompts(subject, selling_points, original_text, platform_style)` → 返回文案 prompt
-- `parse_json_from_response(response)` → 从 VLM 响应中提取 JSON
+#### node_router.py - Node 1: VLM Routing
 
-#### node_router.py - Node 1: VLM 路由
+Calls VLM API to extract product information.
 
-调用 VLM API 提取商品信息：
+#### node_vision.py - Node 2A: Vision Flow
 
-```python
-class NodeRouter:
-    async def process(self, ctx: Context) -> Context:
-        # 1. 获取 prompt
-        prompts = get_vlm_prompts(ctx.original_text)
-        # 2. 图片转 base64
-        image_base64 = ReValueEngine.image_to_base64(ctx.original_image)
-        # 3. 调用 VLM
-        response = await self._call_vlm(image_base64, prompts["system"], prompts["user"])
-        # 4. 解析 JSON
-        vlm_result = parse_json_from_response(response)
-        # 5. 更新 ctx
-        ctx.vlm_json_output = vlm_result
-        ctx.subject = vlm_result.get("subject", "商品")
-        # ... 其他字段
-```
+Chains matting, background generation, and fusion.
 
-#### node_vision.py - Node 2A: 视觉流
+#### node_text.py - Node 2B: Text Flow
 
-串联抠图、生图、融合三大步骤：
+Calls LLM to generate marketing copy.
 
-```python
-class NodeVision:
-    async def process(self, ctx: Context) -> Context:
-        # Step 1: 抠图 (rembg u2net)
-        ctx.matted_image_rgba = await self._process_matting(ctx.original_image)
+#### node_creative.py - Node 2C: Creative Composition
 
-        # Step 2: 背景生成 (SD 1.5)
-        background_prompt = ctx.background_prompt + get_sd_prompt_suffix()
-        ctx.background_image = await self._process_background(background_prompt)
+Renders decorative elements and text onto the final image.
 
-        # Step 3: 图像融合
-        ctx.final_image = self._process_fusion(
-            subject_rgba=ctx.matted_image_rgba,
-            background=ctx.background_image,
-            reference_box=ctx.reference_box,
-        )
-```
+### 3.2 Tool Modules
 
-关键工具：
-- `MattingTool.remove_background(image)` - 使用 rembg 抠图
-- `DiffusersSDGenerator.generate()` - SD 生图
-- `ImageFusion.fuse()` - 融合商品图和背景
+#### api_clients.py - API Client
 
-#### node_text.py - Node 2B: 文案流
-
-调用 LLM 生成营销文案：
-
-```python
-class NodeText:
-    async def process(self, ctx: Context) -> Context:
-        prompts = get_copy_prompts(
-            subject=ctx.subject,
-            selling_points=ctx.selling_points,
-            original_text=ctx.original_text,
-            platform_style=ctx.platform_style,  # "闲鱼体" 或 "小红书体"
-        )
-        response = await self._call_llm(prompts["system"], prompts["user"])
-        ctx.final_copy = self._parse_copy_response(response)
-```
-
-#### node_creative.py - Node 2C: 创意合成
-
-将装饰元素和文字渲染到最终图像上：
-
-```python
-class NodeCreative:
-    async def process(self, ctx: Context) -> Context:
-        # 渲染装饰元素
-        decorated = await self._render_decorations(ctx.final_image, ctx.creative_elements)
-        # 渲染文字
-        title = self._extract_title(ctx.final_copy)
-        ctx.decorated_image = self._render_text(decorated, title, ctx.text_placement)
-```
-
-装饰元素类型：`sparkle`, `star`, `heart`, `badge`, `price_tag`, `ribbon`, `circle_decoration`
-
-### 3.2 tools/ 工具模块详解
-
-#### api_clients.py - API 客户端
-
-统一封装 VLM/LLM API 调用，内置重试机制：
+Unified VLM/LLM API wrapper with built-in retry mechanism:
 
 ```python
 class QwenClient(BaseAPIClient):
@@ -325,21 +246,16 @@ class QwenClient(BaseAPIClient):
     async def chat_with_image(self, image_base64: str, system_prompt: str, user_prompt: str) -> str
 ```
 
-工厂函数：
-- `get_vlm_client(model, config)` → 获取 VLM 客户端
-- `get_llm_client(model, config)` → 获取 LLM 客户端
+**API Key Loading Priority:**
+1. Environment variable (production)
+2. `shared/api_keys_local.yaml` (local override, at project root level)
+3. `shared/api_keys.yaml` (template)
 
-**API Key 加载优先级**：
-1. 环境变量（生产环境）
-2. `D:/Code/AI_Playground/shared/api_keys_local.yaml`（本地覆盖）
-3. `D:/Code/AI_Playground/shared/api_keys.yaml`（模板）
-
-#### cv_utils.py - 图像处理
+#### cv_utils.py - Image Processing
 
 ```python
 class MattingTool:
-    def __init__(self, model_name: str = "u2net")
-    def remove_background(self, image: Image.Image) -> Image.Image  # 返回 RGBA
+    def remove_background(self, image: Image.Image) -> Image.Image  # Returns RGBA
 
 class ShadowRenderer:
     def apply_shadow(self, subject_rgba: Image.Image, background: Image.Image) -> Image.Image
@@ -349,18 +265,17 @@ class ImageFusion:
              reference_box=None, shadow_renderer=None) -> Image.Image
 ```
 
-#### sd_local.py - 本地 SD 推理
+#### sd_local.py - Local SD Inference
 
 ```python
 class DiffusersSDGenerator:
-    def __init__(self, model_path: str, model_type: str = "sd_15", device: str = "cuda")
     async def generate(self, prompt: str, negative_prompt: str = "",
                        width: int = 1024, height: int = 1024,
                        num_inference_steps: int = 25,
                        guidance_scale: float = 7.5) -> Image.Image
 ```
 
-#### text_renderer.py - 文字渲染
+#### text_renderer.py - Text Rendering
 
 ```python
 class TextRenderer:
@@ -372,7 +287,7 @@ class TextRenderer:
                text_color: tuple = (255, 255, 255)) -> Image.Image
 ```
 
-#### decorations.py - 装饰绘制
+#### decorations.py - Decorative Rendering
 
 ```python
 class DecorationRenderer:
@@ -380,393 +295,181 @@ class DecorationRenderer:
     def render_elements(image: Image.Image, elements: list) -> Image.Image
 ```
 
-装饰元素格式：
-```python
-{
-    "type": "sparkle",  # 或 badge, heart, price_tag 等
-    "position": "top-right",  # top-left, top-right, bottom-left, bottom-right, center
-    "count": 3,  # 数量（sparkle/heart/star 有效）
-    "size": "medium",  # small, medium, large
-    "text": "SALE",  # 仅 badge/price_tag 有效
-    "style": "rounded_rect"  # 仅 badge 有效
-}
-```
+Decorative element types: `sparkle`, `star`, `heart`, `badge`, `price_tag`, `ribbon`, `circle_decoration`
 
 ---
 
-## 4. 环境配置与运行
+## 4. Environment Setup
 
-### 4.1 环境要求
+### 4.1 Requirements
 
 - **Python**: 3.10+
-- **CUDA**: 11.8+ (用于 SD 本地推理)
-- **GPU**: RTX 3060+ (建议 4060 以获得最佳体验)
-- **显存**: 8GB+ (SD 1.5 需要约 6GB)
+- **CUDA**: 11.8+ (for SD local inference)
+- **GPU**: RTX 3060+ (RTX 4060 recommended for best experience)
+- **VRAM**: 8GB+ (SD 1.5 requires ~6GB)
 
-### 4.2 环境配置步骤
+### 4.2 Setup Steps
 
 ```bash
-# 1. 进入项目目录
-cd D:/Code/AI_Playground/projects/ReValue-Agent
+# 1. Navigate to project directory
+cd ReValue-Agent
 
-# 2. 创建虚拟环境（如果还没有）
+# 2. Create virtual environment (if not exists)
 python -m venv venv
 
-# 3. 激活虚拟环境
+# 3. Activate virtual environment
 venv\Scripts\activate
 
-# 4. 安装依赖
+# 4. Install dependencies
 pip install -r requirements.txt
 
-# 5. 下载 SD 模型（如果还没有）
-# 模型会自动从 HuggingFace 下载，首次运行时会提示
+# 5. Download SD model (if not exists)
+# Model will auto-download from HuggingFace on first run
 ```
 
-### 4.3 配置 API Key
+### 4.3 Configure API Key
 
-**重要**：API Key 存储在共享目录 `D:/Code/AI_Playground/shared/`，不会提交到 GitHub。
+**Important**: API keys are stored in shared directory at repo root level, not committed to Git.
 
 ```bash
-# 1. 编辑 API 配置文件
-notepad D:/Code/AI_Playground/shared/api_keys_local.yaml
+# 1. Edit API configuration file (create if not exists)
+# Path: shared/api_keys_local.yaml
 
-# 2. 填入你的阿里云百炼 API Key
-# DashScope 免费额度: https://help.aliyun.com/zh/dashscope/
+# 2. Fill in your Alibaba DashScope API Key
+# Free tier: https://help.aliyun.com/zh/dashscope/
 dashscope:
-  api_key: "sk-xxxxxxxxxxxxxxxxxxxxxxxx"  # 填入你的真实 API Key
+  api_key: "sk-xxxxxxxxxxxxxxxxxxxxxxxx"  # Your actual API Key
   base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
 ```
 
-### 4.4 运行命令
+### 4.4 Running Commands
 
 ```bash
-# ============ 正式运行入口 (main.py) ============
+# ============ Main Entry (main.py) ============
 
-# 系统检查
+# System check
 python main.py check
 
-# 单图处理（正式推荐）
-python main.py single -i data/input/xianyu_bag_01.jpg -t "MiniKelly二手包" -o data/output/my_test
+# Single image processing (recommended)
+python main.py single -i data/input/xianyu_bag_01.jpg -t "MiniKelly second-hand bag" -o data/output/my_test
 
-# 单图处理（详细输出）
-python main.py single -i data/input/xianyu_bag_01.jpg -t "MiniKelly二手包" -o data/output/my_test -v
+# Single image with verbose output
+python main.py single -i data/input/xianyu_bag_01.jpg -t "MiniKelly second-hand bag" -o data/output/my_test -v
 
-# 批量处理
+# Batch processing
 python main.py batch --input data/input --output data/output/batch
 
-# 启动 Web 界面
+# Start web interface
 python main.py web --port 7860
 
-# ============ 模块测试脚本 (tests/) ============
+# ============ Module Test Scripts (tests/) ============
 
-# 测试 VLM 模块
-python tests/test_01_vlm.py -i data/input/xianyu_bag_01.jpg -t "MiniKelly二手包"
+# Test VLM module
+python tests/test_01_vlm.py -i data/input/xianyu_bag_01.jpg -t "MiniKelly second-hand bag"
 
-# 测试文案生成模块
-python tests/test_02_copy.py -s "凯莉包" -p "09紫|MiniKelly|95新" -o "二手MiniKelly"
+# Test copy generation module
+python tests/test_02_copy.py -s "Kelly bag" -p "09 Purple|MiniKelly|95 new" -o "Second-hand MiniKelly"
 
-# 测试视觉模块（抠图+SD+融合）
+# Test vision module (matting + SD + fusion)
 python tests/test_03_vision.py -i data/input/xianyu_bag_01.jpg --step all
 
-# 测试创意模块（装饰+文字）
-python tests/test_04_creative.py -i data/output/logs/vision/fused.png -t "爱马仕MiniKelly"
+# Test creative module (decorations + text)
+python tests/test_04_creative.py -i data/output/logs/vision/fused.png -t "Hermes MiniKelly"
 
-# 运行完整流程测试（批量）
+# Run full pipeline test (batch)
 python tests/run_full_pipeline.py
 ```
 
 ---
 
-## 5. API 配置
+## 5. API Configuration
 
-### 5.1 config.yaml 配置文件
+### 5.1 config.yaml
 
-`conf/config.yaml` 包含所有运行时配置：
+`conf/config.yaml` contains all runtime configuration:
 
 ```yaml
-# VLM 模型配置
+# VLM model configuration
 vlm:
-  default_model: "qwen3.5-plus"           # 模型名称
+  default_model: "qwen3.5-plus"
   api_base: "https://dashscope.aliyuncs.com/compatible-mode/v1"
-  timeout: 120                            # 超时时间（秒）
+  timeout: 120
   max_concurrent: 2
 
-# 文案生成模型配置
+# LLM model configuration
 llm:
   default_model: "qwen-plus"
   api_base: "https://dashscope.aliyuncs.com/compatible-mode/v1"
   timeout: 30
 
-# 本地SD配置
+# Local SD configuration
 stable_diffusion:
-  model_type: "sd_15"                    # sd_15 | sdxl_turbo | sdxl
-  model_path: "models/.../snapshots/.../" # 本地模型路径
-  num_inference_steps: 25                # 推理步数
+  model_type: "sd_15"
+  model_path: "models/.../snapshots/.../"
+  num_inference_steps: 25
   guidance_scale: 7.5
   width: 1024
   height: 1024
 
-# 抠图配置
+# Matting configuration
 matting:
-  model_name: "u2net"                    # u2net | u2netp | u2net_human_seg
+  model_name: "u2net"
 
-# 图像融合配置
+# Image fusion configuration
 fusion:
-  mode: "rule"                          # rule | vlm
-  subject_height_ratio: 0.65            # 商品占背景高度比例
-  shadow_blur_radius: 15                # 阴影模糊半径
-  shadow_alpha: 100                    # 阴影透明度
+  mode: "rule"
+  subject_height_ratio: 0.65
+  shadow_blur_radius: 15
+  shadow_alpha: 100
 
-# 创意合成配置
+# Creative composition configuration
 creative:
-  font_path: "C:/Windows/Fonts/msyh.ttc"  # 字体路径
+  font_path: "C:/Windows/Fonts/msyh.ttc"
   default_font_size: 48
-  default_text_bg: [0, 0, 0, 180]       # 半透明黑色背景
-  default_text_color: [255, 255, 255]   # 白色文字
+  default_text_bg: [0, 0, 0, 180]
+  default_text_color: [255, 255, 255]
 ```
 
-### 5.2 切换模型
+### 5.2 Switching Models
 
-如需切换 VLM/LLM 模型，修改 `config.yaml` 中的 `default_model`：
+To switch VLM/LLM models, modify `default_model` in `config.yaml`:
 
 ```yaml
 vlm:
-  default_model: "qwen3.5-plus"  # 可选: qwen_vl_plus, glm_4v, kimi_vl
+  default_model: "qwen3.5-plus"  # Options: qwen_vl_plus, glm_4v, kimi_vl
 llm:
-  default_model: "qwen-plus"     # 可选: qwen_max, glm_4, kimi
+  default_model: "qwen-plus"     # Options: qwen_max, glm_4, kimi
 ```
 
 ---
 
-## 6. 测试与调试
+## 6. Output Files
 
-### 6.1 模块测试脚本
+After each processing run, `data/output/` generates:
 
-每个核心模块都有独立的测试脚本，记录完整输入输出：
+| File Suffix | Description |
+|-------------|-------------|
+| `*_final.png` | Fused product image |
+| `*_decorated.png` | **Final output** - with decorations and title text |
+| `*_matted.png` | rembg matting result |
+| `*_background.png` | SD generated background |
+| `*_copy.json` | Marketing copy |
+| `*_context.json` | VLM analysis result |
+| `*_full_report.json` | Detailed log report |
 
-| 脚本 | 测试内容 | 日志输出位置 |
-|------|---------|-------------|
-| `test_01_vlm.py` | VLM 图像分析 | `data/output/logs/vlm/` |
-| `test_02_copy.py` | 文案生成 | `data/output/logs/copy/` |
-| `test_03_vision.py` | 视觉处理 | `data/output/logs/vision/` |
-| `test_04_creative.py` | 创意渲染 | `data/output/logs/creative/` |
+### 6.1 Copy Output Format
 
-### 6.2 日志格式
-
-每个模块测试输出的 JSON 包含：
-
-```json
-{
-  "test_info": {
-    "module": "vlm",
-    "timestamp": "2026-03-31 16:00:00",
-    "image_path": "data/input/xianyu_bag_01.jpg",
-    "text": "MiniKelly二手包"
-  },
-  "prompt": {
-    "system": "完整 system prompt...",
-    "user": "完整 user prompt..."
-  },
-  "output": {
-    "raw_response": "API 原始响应",
-    "parsed": { ... }
-  },
-  "status": "success"
-}
-```
-
-### 6.3 查看日志
-
-```bash
-# 查看 VLM 测试日志
-ls data/output/logs/vlm/
-
-# 查看某次测试的完整输入输出
-cat data/output/logs/vlm/20260331_xxxxx_vlm_log.json
-```
-
----
-
-## 7. 输出文件说明
-
-每次处理后，`data/output/` 会生成以下文件：
-
-| 文件后缀 | 说明 |
-|----------|------|
-| `*_final.png` | 融合后的商品图 |
-| `*_decorated.png` | **最终输出** - 带装饰和文案标题 |
-| `*_matted.png` | rembg 抠图结果 |
-| `*_background.png` | SD 生成的背景 |
-| `*_copy.json` | 营销文案 |
-| `*_context.json` | VLM 分析结果 |
-| `*_full_report.json` | 详细日志报告 |
-
-### 7.1 文案输出格式
-
-`*_copy.json` 内容示例：
+`*_copy.json` example:
 
 ```json
 {
-  "title": "爱马仕MiniKelly二代｜09梦幻紫鳄鱼皮✨95新",
-  "content": "自用收藏款～入手不到半年，只背过3次！09年经典梦幻紫美洲方块雾面鳄鱼皮..."
+  "title": "Hermes MiniKelly II | 09 Dream Purple Crocodile ✨ 95 New",
+  "content": "Personal collection, less than half a year old, only worn 3 times! 09 classic dream purple American square matte crocodile skin..."
 }
 ```
 
 ---
 
-## 8. 团队分工与下一步工作
+## Additional Documentation
 
-### 8.1 团队分工
-
-| 成员 | 职责 | 主要文件 |
-|------|------|----------|
-| 赵钎年 | Agent 架构、core/、Gradio UI | core/*.py, web/gradio_app.py |
-| 李冠良 | 视觉处理、tools/ | tools/*.py, core/node_vision.py, core/node_creative.py |
-| 马在飞 | 数据、测试、Prompt 优化 | tests/*.py, core/node_text.py, core/prompts.py |
-
-### 8.2 下一步工作 (TECH_PLAN.md)
-
-详细内容请参考 [TECH_PLAN.md](TECH_PLAN.md)。
-
-#### 李冠良负责（视觉优化）
-
-1. **P0 文字方框问题**：修复字体不支持 Emoji 的问题
-   - 文件：`tools/text_renderer.py`
-   - 方案：过滤非支持字符或引入复合字体
-
-2. **P0 文字重叠问题**：修复 `_wrap_text` 行高计算 Bug
-   - 文件：`tools/text_renderer.py`
-
-3. **P1 场景-品类硬路由**：建立 `SCENE_TEMPLATES` 字典
-   - 文件：`core/node_vision.py`
-   - 防止足球鞋背景出现厨房等不匹配问题
-
-4. **P2 光影一致性**：ShadowRenderer 根据光源方向计算阴影偏移
-   - 文件：`tools/cv_utils.py`
-
-5. **P2 PNG 素材库**：用高质量贴图替代 PIL 手绘
-   - 文件：`tools/decorations.py`
-   - 新建：`data/assets/` 目录
-
-6. **P2 文字排版海报化**：阿里巴巴普惠体 + 渐变底板 + 描边
-   - 文件：`tools/text_renderer.py`
-
-#### 马在飞负责（Prompt 优化与测试）
-
-1. **P1 VLM Prompt 场景约束**：在 `core/prompts.py` 中增加
-   - 相机视角约束（俯拍/平视）
-   - 物理承托面约束（草地/桌面/地面）
-
-2. **测试验证**：使用 `tests/test_01_vlm.py` 等脚本验证 Prompt 优化效果
-
-3. **样本测试**：测试 10-15 组样本，覆盖多种品类
-
-### 8.3 使用测试脚本的完整流程
-
-```bash
-# 1. 先单独测试每个模块
-python tests/test_01_vlm.py -i data/input/xianyu_bag_01.jpg -t "MiniKelly二手包"
-python tests/test_02_copy.py -s "凯莉包" -p "09紫|MiniKelly|95新" -o "二手MiniKelly"
-python tests/test_03_vision.py -i data/input/xianyu_bag_01.jpg --step all
-python tests/test_04_creative.py -i {fused_path}.png -t "爱马仕MiniKelly"
-
-# 2. 检查日志输出
-cat data/output/logs/vlm/xxx_vlm_log.json
-cat data/output/logs/copy/xxx_copy_log.json
-
-# 3. 如果模块都正常，用 main.py 跑完整流程
-python main.py single -i data/input/xianyu_bag_01.jpg -t "MiniKelly二手包" -o data/output/final_test -v
-```
-
----
-
-## 9. 常见问题
-
-### Q: 运行时显示 "ModuleNotFoundError"
-
-```bash
-# 解决方案：安装依赖
-venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### Q: API 调用报 401 错误
-
-```bash
-# 解决方案：检查 API Key 配置
-# 1. 确认 api_keys_local.yaml 中填入了真实 API Key
-# 2. 确认 API Key 有免费额度
-notepad D:/Code/AI_Playground/shared/api_keys_local.yaml
-```
-
-### Q: SD 生成显示 "CUDA out of memory"
-
-```yaml
-# 解决方案：降低推理步数或图像尺寸
-stable_diffusion:
-  num_inference_steps: 15  # 从 25 降到 15
-  width: 768               # 从 1024 降到 768
-  height: 768
-```
-
-### Q: 抠图边缘有残留背景
-
-```yaml
-# 解决方案：调整 alpha threshold
-matting:
-  alpha_threshold: 10  # 提高阈值
-```
-
-### Q: 如何查看完整日志？
-
-每个输出目录都有 `*_full_report.json`，包含端到端的完整处理记录。
-
-### Q: 如何添加新的测试样本？
-
-```bash
-# 1. 在 data/input/ 目录下添加图片
-# 2. 创建同名的 .json 描述文件
-# 例如：data/input/xianyu_bag_01.jpg 需要配对 data/input/xianyu_bag_01.json
-```
-
-`xianyu_bag_01.json` 格式：
-```json
-{
-  "description": "MiniKelly二代 09梦幻紫...",
-  "platform": "闲鱼"
-}
-```
-
----
-
-## 附录：测试样本
-
-| 图片 | 商品 | 平台 |
-|------|------|------|
-| xianyu_bag_01.jpg | 爱马仕 Kelly 包 | 闲鱼 |
-| xianyu_shoes_01.jpg | 李宁球鞋 | 闲鱼 |
-| shoes_02.jpg | Nike 足球鞋 | 闲鱼 |
-| xiaohongshu_bag_01.jpg | LV 月亮包 | 小红书 |
-
----
-
-## 更新日志
-
-### v4.1 (2026-04-01)
-- 🐛 修复 Gradio 前端 `TaskStatus` 引用错误 (`self.engine.TaskStatus` → `TaskStatus`)
-- 🐛 修复 aiohttp `ClientSession` 未关闭导致的资源泄漏警告
-- 添加 `ReValueEngine.close()` 方法确保资源正确释放
-
-### v4.0 (2026-03-31)
-- 完整 DAG 管线实现（VLM → 视觉流/文案流 → 创意合成）
-- Gradio Web UI 正式可用
-- 支持闲鱼/小红书双平台文案风格
-- rembg 抠图 + SD 1.5 背景生成
-- 装饰元素（闪光/徽章/价格标签）+ 文字渲染
-- 批量测试与评估脚本
-
----
-
-*文档版本: v4.1*
-*最后更新: 2026-04-01*
-*负责人: 赵钎年（架构）、李冠良（视觉）、马在飞（测试）*
+- [中文版](docs/zh/README.md) - Chinese version of this documentation
